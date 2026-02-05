@@ -15,12 +15,13 @@ class SiriTrigger:
         self.cooldown_seconds = cooldown_seconds
         self.shortcut_key = shortcut_key
         self.shortcut_modifiers = shortcut_modifiers or ["command"]
-        self._last_trigger_time = 0.0
+        self._last_trigger_time = None
         self._runner = runner
         self._time_fn = time_fn
 
     def trigger(self) -> bool:
-        if self.is_in_cooldown():
+        now = self._time_fn()
+        if self.is_in_cooldown(now):
             return False
 
         key = self.shortcut_key
@@ -36,13 +37,17 @@ class SiriTrigger:
 
         try:
             self._runner(["osascript", "-e", script], check=True, capture_output=True)
-            self._last_trigger_time = self._time_fn()
+            self._last_trigger_time = now
             return True
         except subprocess.CalledProcessError:
             return False
 
-    def is_in_cooldown(self) -> bool:
-        return (self._time_fn() - self._last_trigger_time) < self.cooldown_seconds
+    def is_in_cooldown(self, now: Optional[float] = None) -> bool:
+        if self._last_trigger_time is None:
+            return False
+        if now is None:
+            now = self._time_fn()
+        return (now - self._last_trigger_time) < self.cooldown_seconds
 
     @staticmethod
     def check_siri_enabled(runner: Callable = subprocess.run) -> bool:
