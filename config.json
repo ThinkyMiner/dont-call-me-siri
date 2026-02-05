@@ -1,0 +1,33 @@
+{
+    "wake_phrases": [
+        "mithi",
+        "bhature",
+        "hey jarvis"
+    ],
+    "audio": {
+        "sample_rate": 16000,
+        "chunk_duration_ms": 30,
+        "pre_buffer_duration_ms": 400,
+        "device_id": null
+    },
+    "vad": {
+        "aggressiveness": 2,
+        "min_speech_duration_ms": 200,
+        "silence_duration_ms": 500
+    },
+    "detection": {
+        "confidence_threshold": 0.5,
+        "cooldown_seconds": 3.0
+    },
+    "siri": {
+        "trigger_method": "keyboard",
+        "keyboard_shortcut": {
+            "key": "space",
+            "modifiers": ["command"]
+        }
+    },
+    "general": {
+        "log_level": "INFO",
+        "show_notifications": true
+    }
+}
