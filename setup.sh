@@ -4,7 +4,7 @@ set -e
 echo "Custom Wake Phrase Trigger - Setup"
 echo "=================================="
 
-python3 --version | grep -E "3\.(10|11|12|13)" > /dev/null || {
+python3 --version | grep -E "3\.(10|11|12|13|14)" > /dev/null || {
     echo "Python 3.10+ required"
     exit 1
 }
