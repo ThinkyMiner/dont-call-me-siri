@@ -30,3 +30,10 @@ python -m src.main phrases list
 python -m src.main phrases add "computer"
 python -m src.main phrases remove "bhature"
 ```
+
+Check system status and audio devices:
+
+```bash
+python -m src.main doctor
+python -m src.main devices
+```
