@@ -4,9 +4,10 @@ import sys
 from typing import Callable
 
 
-def setup_logging(level: str = "INFO"):
+def setup_logging(level: str | int = "INFO"):
+    resolved_level = level if isinstance(level, int) else getattr(logging, level.upper(), logging.INFO)
     logging.basicConfig(
-        level=getattr(logging, level.upper(), logging.INFO),
+        level=resolved_level,
         format="%(asctime)s [%(levelname)s] %(message)s",
         datefmt="%H:%M:%S",
     )

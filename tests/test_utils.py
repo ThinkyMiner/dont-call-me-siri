@@ -9,6 +9,12 @@ def test_setup_logging_sets_level():
     assert logging.getLogger().level == logging.DEBUG
 
 
+def test_setup_logging_accepts_int_level():
+    logging.getLogger().handlers.clear()
+    setup_logging(logging.DEBUG)
+    assert logging.getLogger().level == logging.DEBUG
+
+
 def test_show_notification_ignores_failure():
     def runner(*args, **kwargs):
         raise subprocess.CalledProcessError(1, ["osascript"])

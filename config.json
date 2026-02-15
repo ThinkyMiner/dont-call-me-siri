@@ -1,29 +1,31 @@
 {
     "wake_phrases": [
-        "mithi",
-        "bhature",
-        "hey jarvis"
+        "hello",
+        "cortana",
+        "jarvis",
+        "mithi"
     ],
     "audio": {
         "sample_rate": 16000,
         "chunk_duration_ms": 30,
         "pre_buffer_duration_ms": 400,
-        "device_id": null
+        "device_id": 0
     },
     "vad": {
-        "aggressiveness": 2,
-        "min_speech_duration_ms": 200,
-        "silence_duration_ms": 500
+        "aggressiveness": 3,
+        "min_speech_duration_ms": 240,
+        "silence_duration_ms": 650
     },
     "detection": {
-        "confidence_threshold": 0.5,
-        "cooldown_seconds": 3.0
+        "confidence_threshold": 0.0,
+        "cooldown_seconds": 3.0,
+        "allow_unk_wrapped_match": false
     },
     "siri": {
-        "trigger_method": "keyboard",
+        "trigger_method": "open_app",
         "keyboard_shortcut": {
-            "key": "space",
-            "modifiers": ["command"]
+            "key": "command",
+            "modifiers": []
         }
     },
     "general": {

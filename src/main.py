@@ -35,15 +35,44 @@ class WakePhraseDaemon:
             model_path="models/vosk-model-small-en-us-0.15",
             phrases=config.wake_phrases,
             sample_rate=config.audio.sample_rate,
+            debug_fallback_transcript=test_mode,
+            verify_with_fallback=True,
+            allow_unk_wrapped_match=getattr(config.detection, "allow_unk_wrapped_match", False),
         )
-        self.trigger = trigger or SiriTrigger(cooldown_seconds=config.detection.cooldown_seconds)
+        if trigger is not None:
+            self.trigger = trigger
+        else:
+            shortcut_key = "space"
+            shortcut_modifiers = ["command"]
+            trigger_method = "keyboard"
+            siri_cfg = getattr(config, "siri", None)
+            shortcut_cfg = getattr(siri_cfg, "keyboard_shortcut", None) if siri_cfg else None
+            if siri_cfg:
+                trigger_method = getattr(siri_cfg, "trigger_method", trigger_method)
+            if isinstance(shortcut_cfg, dict):
+                shortcut_key = shortcut_cfg.get("key", shortcut_key)
+                shortcut_modifiers = shortcut_cfg.get("modifiers", shortcut_modifiers)
+                if shortcut_modifiers is None:
+                    shortcut_modifiers = []
+            self.trigger = SiriTrigger(
+                cooldown_seconds=config.detection.cooldown_seconds,
+                shortcut_key=shortcut_key,
+                shortcut_modifiers=shortcut_modifiers,
+                trigger_method=trigger_method,
+            )
+        self._last_vad_state = None
 
     def start(self):
         self.running = True
         decoder_thread = threading.Thread(target=self._decoder_loop, daemon=True)
         decoder_thread.start()
         logging.info("Listening for: %s", ", ".join(self.config.wake_phrases))
-        self.audio.start(self._on_audio)
+        try:
+            self.audio.start(self._on_audio)
+        except RuntimeError as exc:
+            logging.error("%s", exc)
+            self.running = False
+            return
 
         try:
             while self.running:
@@ -58,7 +87,13 @@ class WakePhraseDaemon:
 
     def _on_audio(self, chunk: bytes):
         result = self.vad.process(chunk, self.audio.get_pre_buffer())
+        state = getattr(result, "state", None)
+        if state is not None and state != self._last_vad_state:
+            label = state.value if hasattr(state, "value") else str(state)
+            logging.debug("VAD state: %s", label)
+            self._last_vad_state = state
         if getattr(result, "audio_segment", None) is not None:
+            logging.debug("Queued speech segment: %d bytes", len(result.audio_segment))
             self.audio_queue.put(result.audio_segment)
             self.audio.clear_pre_buffer()
 
@@ -71,6 +106,8 @@ class WakePhraseDaemon:
 
             result = self.detector.detect(segment)
             logging.debug("Detected: '%s' (conf: %.2f)", result.raw_text, result.confidence)
+            if result.fallback_text:
+                logging.debug("Fallback transcript: '%s'", result.fallback_text)
 
             if result.detected and result.confidence >= self.config.detection.confidence_threshold:
                 if self.test_mode:
@@ -135,10 +172,14 @@ def main():
             print("Siri enabled")
         else:
             print("Siri not enabled - enable in System Settings")
-        if SiriTrigger.check_accessibility_permissions():
-            print("Accessibility permissions granted")
+        trigger_method = getattr(config.siri, "trigger_method", "keyboard")
+        if trigger_method == "open_app":
+            print("Accessibility permissions not required for open_app trigger")
         else:
-            print("Accessibility permissions needed - add Terminal in System Settings")
+            if SiriTrigger.check_accessibility_permissions():
+                print("Accessibility permissions granted")
+            else:
+                print("Accessibility permissions needed - add Terminal in System Settings")
         if os.path.exists("models/vosk-model-small-en-us-0.15"):
             print("Vosk model found")
         else:

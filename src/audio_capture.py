@@ -27,15 +27,27 @@ class AudioCapture:
 
     def start(self, callback: Callable[[bytes], None]) -> None:
         self._callback = callback
-        self._stream = sd.RawInputStream(
-            samplerate=self.sample_rate,
-            channels=1,
-            dtype="int16",
-            blocksize=self.chunk_size,
-            device=self.device_id,
-            callback=self._handle_audio,
-        )
-        self._stream.start()
+        try:
+            self._stream = sd.RawInputStream(
+                samplerate=self.sample_rate,
+                channels=1,
+                dtype="int16",
+                blocksize=self.chunk_size,
+                device=self.device_id,
+                callback=self._handle_audio,
+            )
+            self._stream.start()
+        except sd.PortAudioError as exc:
+            input_devices = self.list_devices()
+            if not input_devices:
+                raise RuntimeError(
+                    "No input audio devices were found. Connect/enable a microphone, "
+                    "then run `python -m src.main devices` to verify."
+                ) from exc
+            raise RuntimeError(
+                "Could not open the audio input device. Set `audio.device_id` in config.json "
+                "to one of the indices from `python -m src.main devices`."
+            ) from exc
 
     def stop(self) -> None:
         if self._stream:
@@ -51,7 +63,10 @@ class AudioCapture:
 
     @staticmethod
     def list_devices() -> list[dict]:
-        devices = sd.query_devices()
+        try:
+            devices = sd.query_devices()
+        except sd.PortAudioError:
+            return []
         return [
             {"index": i, "name": d["name"]}
             for i, d in enumerate(devices)
