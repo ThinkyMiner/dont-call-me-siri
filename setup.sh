@@ -50,11 +50,12 @@ if [ ! -f "config.json" ]; then
         "silence_duration_ms": 500
     },
     "detection": {
-        "confidence_threshold": 0.5,
-        "cooldown_seconds": 3.0
+        "confidence_threshold": 0.0,
+        "cooldown_seconds": 3.0,
+        "allow_unk_wrapped_match": false
     },
     "siri": {
-        "trigger_method": "keyboard",
+        "trigger_method": "open_app",
         "keyboard_shortcut": {
             "key": "space",
             "modifiers": ["command"]

@@ -1,15 +1,13 @@
 {
     "wake_phrases": [
         "hello",
-        "cortana",
-        "jarvis",
-        "mithi"
+        "jarvis"
     ],
     "audio": {
         "sample_rate": 16000,
         "chunk_duration_ms": 30,
         "pre_buffer_duration_ms": 400,
-        "device_id": 0
+        "device_id": null
     },
     "vad": {
         "aggressiveness": 3,
@@ -24,8 +22,10 @@
     "siri": {
         "trigger_method": "open_app",
         "keyboard_shortcut": {
-            "key": "command",
-            "modifiers": []
+            "key": "space",
+            "modifiers": [
+                "command"
+            ]
         }
     },
     "general": {
