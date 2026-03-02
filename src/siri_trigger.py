@@ -118,7 +118,7 @@ class SiriTrigger:
                 capture_output=True,
                 text=True,
             )
-            return result.stdout.strip() != "1"
+            return result.stdout.strip() == "0"
         except subprocess.CalledProcessError:
             # Key absent → macOS with Apple Intelligence defaults to text mode
             return False
@@ -134,5 +134,5 @@ class SiriTrigger:
         # Restart accessibility UI server so the change takes effect immediately
         try:
             runner(["killall", "-HUP", "UIKitSystem"], capture_output=True)
-        except Exception:
+        except OSError:
             pass

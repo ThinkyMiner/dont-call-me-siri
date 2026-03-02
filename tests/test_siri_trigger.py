@@ -116,7 +116,11 @@ def test_set_voice_mode_writes_correct_defaults_key():
 
     SiriTrigger.set_voice_mode(runner=runner)
 
-    assert any("TypeToSiriEnabled" in " ".join(c) for c in calls), \
-        "Expected a defaults write for TypeToSiriEnabled"
+    write_calls = [c for c in calls if "defaults" in c and "write" in c]
+    assert len(write_calls) == 1, "Expected exactly one defaults write call"
+    write_cmd = write_calls[0]
+    assert "TypeToSiriEnabled" in write_cmd
+    assert "-bool" in write_cmd and "false" in write_cmd, \
+        "Expected TypeToSiriEnabled to be set to false"
     assert any("killall" in " ".join(c) for c in calls), \
         "Expected killall to restart the accessibility agent"
