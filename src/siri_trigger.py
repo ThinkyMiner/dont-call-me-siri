@@ -1,3 +1,4 @@
+import logging
 import time
 import subprocess
 from typing import Callable, Optional
@@ -34,7 +35,9 @@ class SiriTrigger:
                 self._runner(["osascript", "-e", script], check=True, capture_output=True)
             self._last_trigger_time = now
             return True
-        except subprocess.CalledProcessError:
+        except subprocess.CalledProcessError as exc:
+            stderr = exc.stderr.decode() if isinstance(exc.stderr, bytes) else (exc.stderr or "")
+            logging.error("Siri trigger command failed (exit %d): %s", exc.returncode, stderr or exc.cmd)
             return False
 
     def _build_script(self) -> str:
@@ -104,3 +107,32 @@ class SiriTrigger:
             return result.stdout.strip().lower() == "true"
         except subprocess.CalledProcessError:
             return False
+
+    @staticmethod
+    def check_voice_mode(runner: Callable = subprocess.run) -> bool:
+        """Return True when Siri opens in voice mode (Type to Siri is disabled)."""
+        try:
+            result = runner(
+                ["defaults", "read", "com.apple.Accessibility", "TypeToSiriEnabled"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            return result.stdout.strip() != "1"
+        except subprocess.CalledProcessError:
+            # Key absent → macOS with Apple Intelligence defaults to text mode
+            return False
+
+    @staticmethod
+    def set_voice_mode(runner: Callable = subprocess.run) -> None:
+        """Disable Type to Siri so Siri opens in voice listening mode."""
+        runner(
+            ["defaults", "write", "com.apple.Accessibility", "TypeToSiriEnabled", "-bool", "false"],
+            check=True,
+            capture_output=True,
+        )
+        # Restart accessibility UI server so the change takes effect immediately
+        try:
+            runner(["killall", "-HUP", "UIKitSystem"], capture_output=True)
+        except Exception:
+            pass
