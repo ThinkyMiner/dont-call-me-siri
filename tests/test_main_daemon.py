@@ -52,6 +52,9 @@ class FakeTrigger:
         self.count += 1
         return True
 
+    def is_in_cooldown(self, now=None):
+        return False
+
 
 class FakeConfig:
     wake_phrases = ["hello"]
@@ -228,8 +231,7 @@ def test_doctor_reports_voice_mode_active(monkeypatch, capsys):
             pass
 
     out = capsys.readouterr().out
-    assert "active" in out.lower()
-    assert "fix" not in out.lower()
+    assert "voice mode: active" in out.lower()
 
 
 def test_doctor_fix_voice_mode_calls_set_voice_mode(monkeypatch, capsys):

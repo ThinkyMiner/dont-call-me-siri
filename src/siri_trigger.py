@@ -135,4 +135,4 @@ class SiriTrigger:
         try:
             runner(["killall", "-HUP", "UIKitSystem"], capture_output=True)
         except OSError:
-            pass
+            pass  # UIKitSystem not running or killall not on PATH — non-fatal

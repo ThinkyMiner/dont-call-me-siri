@@ -72,3 +72,4 @@ fi
 echo "Setup complete."
 echo "Activate the environment: source venv/bin/activate"
 echo "Run: python -m src.main run"
+echo "Run 'python -m src.main doctor --fix-voice-mode' to enable Siri voice listening mode."

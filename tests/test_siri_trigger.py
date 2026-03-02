@@ -84,20 +84,30 @@ def test_trigger_open_app_method_uses_open_command():
 
 def test_check_voice_mode_returns_true_when_type_to_siri_disabled():
     """Voice mode is active when TypeToSiriEnabled is 0."""
+    received = []
+
     def runner(cmd, **kwargs):
+        received.append(cmd)
         class R:
             stdout = "0\n"
         return R()
+
     assert SiriTrigger.check_voice_mode(runner=runner) is True
+    assert received == [["defaults", "read", "com.apple.Accessibility", "TypeToSiriEnabled"]]
 
 
 def test_check_voice_mode_returns_false_when_type_to_siri_enabled():
     """Voice mode is inactive when TypeToSiriEnabled is 1."""
+    received = []
+
     def runner(cmd, **kwargs):
+        received.append(cmd)
         class R:
             stdout = "1\n"
         return R()
+
     assert SiriTrigger.check_voice_mode(runner=runner) is False
+    assert received == [["defaults", "read", "com.apple.Accessibility", "TypeToSiriEnabled"]]
 
 
 def test_check_voice_mode_returns_false_when_key_missing():
