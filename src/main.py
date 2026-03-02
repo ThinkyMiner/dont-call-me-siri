@@ -110,13 +110,21 @@ class WakePhraseDaemon:
                 logging.debug("Fallback transcript: '%s'", result.fallback_text)
 
             if result.detected and result.confidence >= self.config.detection.confidence_threshold:
-                if self.test_mode:
-                    print(f"[TEST MODE] Would trigger Siri for: '{result.phrase}'")
-                else:
-                    if self.trigger.trigger():
-                        logging.info("Siri triggered")
-                        if self.config.general.show_notifications:
-                            show_notification("Wake Phrase Detected", f"Triggered Siri with '{result.phrase}'")
+                self._handle_detection(result)
+
+    def _handle_detection(self, result) -> None:
+        if self.test_mode:
+            print(f"[TEST MODE] Would trigger Siri for: '{result.phrase}'")
+            return
+        if self.trigger.is_in_cooldown():
+            logging.debug("Siri trigger skipped — cooldown active for '%s'", result.phrase)
+            return
+        if self.trigger.trigger():
+            logging.info("Siri triggered for: '%s'", result.phrase)
+            if self.config.general.show_notifications:
+                show_notification("Wake Phrase Detected", f"Triggered Siri with '{result.phrase}'")
+        else:
+            logging.warning("Siri trigger failed for: '%s' — check system permissions", result.phrase)
 
 
 def main():
@@ -137,7 +145,12 @@ def main():
     remove_parser = phrases_sub.add_parser("remove", help="Remove a wake phrase")
     remove_parser.add_argument("phrase", help="Phrase to remove")
 
-    subparsers.add_parser("doctor", help="Check system status")
+    doctor_parser = subparsers.add_parser("doctor", help="Check system status")
+    doctor_parser.add_argument(
+        "--fix-voice-mode",
+        action="store_true",
+        help="Disable 'Type to Siri' so Siri opens in voice listening mode",
+    )
     subparsers.add_parser("devices", help="List audio devices")
 
     args = parser.parse_args()
@@ -180,6 +193,17 @@ def main():
                 print("Accessibility permissions granted")
             else:
                 print("Accessibility permissions needed - add Terminal in System Settings")
+        if getattr(args, "fix_voice_mode", False):
+            print("Disabling Type to Siri — Siri will now open in voice listening mode...")
+            SiriTrigger.set_voice_mode()
+            print("Done. Voice mode enabled.")
+
+        if SiriTrigger.check_voice_mode():
+            print("Voice mode: active (Siri will listen immediately)")
+        else:
+            print("Voice mode: inactive — Siri opens the text bar instead of listening")
+            print("  Fix: python -m src.main doctor --fix-voice-mode")
+
         if os.path.exists("models/vosk-model-small-en-us-0.15"):
             print("Vosk model found")
         else:

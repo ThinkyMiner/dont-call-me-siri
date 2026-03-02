@@ -1,3 +1,4 @@
+import logging
 from src.main import WakePhraseDaemon
 from src.phrase_detector import DetectionResult
 
@@ -66,6 +67,57 @@ class FakeConfig:
     class general:
         show_notifications = False
 
+
+
+class FailingTrigger:
+    def trigger(self):
+        return False
+
+    def is_in_cooldown(self, now=None):
+        return False
+
+
+def test_daemon_logs_warning_when_trigger_fails(caplog):
+    daemon = WakePhraseDaemon(
+        config=FakeConfig(),
+        test_mode=False,
+        audio=FakeAudio(),
+        vad=FakeVAD(),
+        detector=FakeDetector(),
+        trigger=FailingTrigger(),
+    )
+
+    detection = DetectionResult(detected=True, phrase="hello", confidence=0.9, raw_text="hello")
+
+    with caplog.at_level(logging.WARNING):
+        daemon._handle_detection(detection)
+
+    assert any(r.levelno >= logging.WARNING for r in caplog.records)
+
+
+def test_daemon_logs_debug_when_trigger_in_cooldown(caplog):
+    class CooldownTrigger:
+        def trigger(self):
+            return False
+
+        def is_in_cooldown(self, now=None):
+            return True
+
+    daemon = WakePhraseDaemon(
+        config=FakeConfig(),
+        test_mode=False,
+        audio=FakeAudio(),
+        vad=FakeVAD(),
+        detector=FakeDetector(),
+        trigger=CooldownTrigger(),
+    )
+
+    detection = DetectionResult(detected=True, phrase="hello", confidence=0.9, raw_text="hello")
+
+    with caplog.at_level(logging.DEBUG):
+        daemon._handle_detection(detection)
+
+    assert any("cooldown" in r.message.lower() for r in caplog.records)
 
 
 def test_daemon_triggers_on_detected_phrase():
@@ -139,3 +191,42 @@ def test_daemon_reads_siri_shortcut_from_config(monkeypatch):
     assert captured["shortcut_key"] == "command"
     assert captured["shortcut_modifiers"] == []
     assert captured["trigger_method"] == "open_app"
+
+
+def test_doctor_reports_voice_mode_inactive(monkeypatch, capsys):
+    """doctor command prints voice mode status when Type to Siri is ON."""
+    monkeypatch.setattr("src.main.SiriTrigger.check_siri_enabled", lambda: True)
+    monkeypatch.setattr("src.main.SiriTrigger.check_voice_mode", lambda: False)
+    monkeypatch.setattr("src.main.SiriTrigger.check_accessibility_permissions", lambda: True)
+    monkeypatch.setattr("os.path.exists", lambda _: True)
+
+    from unittest.mock import patch
+    with patch("sys.argv", ["src.main", "doctor"]):
+        from src.main import main
+        try:
+            main()
+        except SystemExit:
+            pass
+
+    out = capsys.readouterr().out
+    assert "voice mode" in out.lower() or "type to siri" in out.lower()
+
+
+def test_doctor_fix_voice_mode_calls_set_voice_mode(monkeypatch, capsys):
+    """doctor --fix-voice-mode calls SiriTrigger.set_voice_mode."""
+    called = []
+    monkeypatch.setattr("src.main.SiriTrigger.set_voice_mode", lambda: called.append(True))
+    monkeypatch.setattr("src.main.SiriTrigger.check_siri_enabled", lambda: True)
+    monkeypatch.setattr("src.main.SiriTrigger.check_voice_mode", lambda: False)
+    monkeypatch.setattr("src.main.SiriTrigger.check_accessibility_permissions", lambda: True)
+    monkeypatch.setattr("os.path.exists", lambda _: True)
+
+    from unittest.mock import patch
+    with patch("sys.argv", ["src.main", "doctor", "--fix-voice-mode"]):
+        from src.main import main
+        try:
+            main()
+        except SystemExit:
+            pass
+
+    assert called, "Expected set_voice_mode to be called"
