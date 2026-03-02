@@ -2,6 +2,7 @@ import argparse
 import logging
 import os
 import queue
+import subprocess
 import threading
 
 from .config import Config
@@ -193,10 +194,13 @@ def main():
                 print("Accessibility permissions granted")
             else:
                 print("Accessibility permissions needed - add Terminal in System Settings")
-        if getattr(args, "fix_voice_mode", False):
+        if args.fix_voice_mode:
             print("Disabling Type to Siri — Siri will now open in voice listening mode...")
-            SiriTrigger.set_voice_mode()
-            print("Done. Voice mode enabled.")
+            try:
+                SiriTrigger.set_voice_mode()
+                print("Done. Voice mode enabled.")
+            except subprocess.CalledProcessError as exc:
+                print(f"Failed to set voice mode: {exc}")
 
         if SiriTrigger.check_voice_mode():
             print("Voice mode: active (Siri will listen immediately)")

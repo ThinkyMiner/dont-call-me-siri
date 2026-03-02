@@ -212,6 +212,26 @@ def test_doctor_reports_voice_mode_inactive(monkeypatch, capsys):
     assert "voice mode" in out.lower() or "type to siri" in out.lower()
 
 
+def test_doctor_reports_voice_mode_active(monkeypatch, capsys):
+    """doctor command prints active status when Type to Siri is OFF."""
+    monkeypatch.setattr("src.main.SiriTrigger.check_siri_enabled", lambda: True)
+    monkeypatch.setattr("src.main.SiriTrigger.check_voice_mode", lambda: True)
+    monkeypatch.setattr("src.main.SiriTrigger.check_accessibility_permissions", lambda: True)
+    monkeypatch.setattr("os.path.exists", lambda _: True)
+
+    from unittest.mock import patch
+    with patch("sys.argv", ["src.main", "doctor"]):
+        from src.main import main
+        try:
+            main()
+        except SystemExit:
+            pass
+
+    out = capsys.readouterr().out
+    assert "active" in out.lower()
+    assert "fix" not in out.lower()
+
+
 def test_doctor_fix_voice_mode_calls_set_voice_mode(monkeypatch, capsys):
     """doctor --fix-voice-mode calls SiriTrigger.set_voice_mode."""
     called = []
@@ -230,3 +250,28 @@ def test_doctor_fix_voice_mode_calls_set_voice_mode(monkeypatch, capsys):
             pass
 
     assert called, "Expected set_voice_mode to be called"
+
+
+def test_doctor_fix_voice_mode_prints_error_on_failure(monkeypatch, capsys):
+    """doctor --fix-voice-mode prints an error message if set_voice_mode raises."""
+    import subprocess as _subprocess
+
+    def failing_set_voice_mode():
+        raise _subprocess.CalledProcessError(1, ["defaults", "write"])
+
+    monkeypatch.setattr("src.main.SiriTrigger.set_voice_mode", failing_set_voice_mode)
+    monkeypatch.setattr("src.main.SiriTrigger.check_siri_enabled", lambda: True)
+    monkeypatch.setattr("src.main.SiriTrigger.check_voice_mode", lambda: False)
+    monkeypatch.setattr("src.main.SiriTrigger.check_accessibility_permissions", lambda: True)
+    monkeypatch.setattr("os.path.exists", lambda _: True)
+
+    from unittest.mock import patch
+    with patch("sys.argv", ["src.main", "doctor", "--fix-voice-mode"]):
+        from src.main import main
+        try:
+            main()
+        except SystemExit:
+            pass
+
+    out = capsys.readouterr().out
+    assert "failed" in out.lower() or "error" in out.lower()
