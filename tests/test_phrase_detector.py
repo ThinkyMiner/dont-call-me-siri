@@ -1,149 +1,79 @@
-import json
-from src.phrase_detector import PhraseDetector
+from src.phrase_detector import PhraseDetector, DetectionResult
 
 
-class FakeRecognizer:
-    def __init__(self, result_json):
-        self._result_json = result_json
+class FakeTokenizer:
+    def __init__(self, text=""):
+        self._text = text
 
-    def AcceptWaveform(self, _audio):
-        return True
-
-    def FinalResult(self):
-        return self._result_json
-
-    def Reset(self):
-        pass
+    def decode_batch(self, token_batches):
+        return [self._text for _ in token_batches]
 
 
-def test_detect_matches_phrase_and_confidence():
-    results = json.dumps({
-        "text": "hello",
-        "result": [{"conf": 0.6}, {"conf": 0.8}],
-    })
+class FakeModel:
+    """Fake MoonshineOnnxModel that returns preset tokens."""
 
-    def factory(_model, _rate, grammar):
-        assert "[unk]" in grammar
-        return FakeRecognizer(results)
+    def generate(self, audio, max_len=None):
+        return [[1, 100, 2]]  # start, token, eos
 
-    detector = PhraseDetector(
-        model_path="/tmp/does-not-matter",
-        phrases=["hello"],
-        sample_rate=16000,
-        model=object(),
-        recognizer_factory=factory,
-    )
 
-    res = detector.detect(b"audio")
+def _make_detector(text, phrases):
+    model = FakeModel()
+    tokenizer = FakeTokenizer(text)
+    return PhraseDetector(phrases=phrases, model=model, tokenizer=tokenizer)
+
+
+def test_detect_exact_match():
+    detector = _make_detector("hello", ["hello"])
+    res = detector.detect(b"\x00\x00" * 8000)
     assert res.detected is True
     assert res.phrase == "hello"
-    assert abs(res.confidence - 0.7) < 0.001
+    assert res.raw_text == "hello"
 
 
-def test_detect_unknown_phrase_includes_fallback_transcript():
-    constrained = json.dumps({
-        "text": "[unk]",
-        "result": [],
-    })
-    fallback = json.dumps({
-        "text": "hey nervous",
-        "result": [],
-    })
-
-    def constrained_factory(_model, _rate, _grammar):
-        return FakeRecognizer(constrained)
-
-    def fallback_factory(_model, _rate):
-        return FakeRecognizer(fallback)
-
-    detector = PhraseDetector(
-        model_path="/tmp/does-not-matter",
-        phrases=["hey jarvis"],
-        sample_rate=16000,
-        model=object(),
-        recognizer_factory=constrained_factory,
-        debug_fallback_transcript=True,
-        fallback_recognizer_factory=fallback_factory,
-    )
-
-    res = detector.detect(b"audio")
-    assert res.detected is False
-    assert res.raw_text == "[unk]"
-    assert res.fallback_text == "hey nervous"
-
-
-def test_detect_matches_when_phrase_is_wrapped_by_unk_tokens():
-    wrapped = json.dumps({
-        "text": "[unk] hello [unk]",
-        "result": [],
-    })
-
-    def factory(_model, _rate, _grammar):
-        return FakeRecognizer(wrapped)
-
-    detector = PhraseDetector(
-        model_path="/tmp/does-not-matter",
-        phrases=["hello"],
-        sample_rate=16000,
-        model=object(),
-        recognizer_factory=factory,
-        allow_unk_wrapped_match=True,
-    )
-
-    res = detector.detect(b"audio")
+def test_detect_contains_match():
+    detector = _make_detector("hey jarvis how are you", ["jarvis"])
+    res = detector.detect(b"\x00\x00" * 8000)
     assert res.detected is True
-    assert res.phrase == "hello"
+    assert res.phrase == "jarvis"
 
 
-def test_detect_rejects_wrapped_unk_by_default_for_strictness():
-    wrapped = json.dumps({
-        "text": "[unk] hello [unk]",
-        "result": [],
-    })
-
-    def factory(_model, _rate, _grammar):
-        return FakeRecognizer(wrapped)
-
-    detector = PhraseDetector(
-        model_path="/tmp/does-not-matter",
-        phrases=["hello"],
-        sample_rate=16000,
-        model=object(),
-        recognizer_factory=factory,
-    )
-
-    res = detector.detect(b"audio")
+def test_detect_no_match():
+    detector = _make_detector("the weather is nice today", ["hello", "jarvis"])
+    res = detector.detect(b"\x00\x00" * 8000)
     assert res.detected is False
     assert res.phrase is None
 
 
-def test_detect_rejected_when_fallback_disagrees():
-    constrained = json.dumps({
-        "text": "hello",
-        "result": [],
-    })
-    fallback = json.dumps({
-        "text": "yellow",
-        "result": [],
-    })
-
-    def constrained_factory(_model, _rate, _grammar):
-        return FakeRecognizer(constrained)
-
-    def fallback_factory(_model, _rate):
-        return FakeRecognizer(fallback)
-
-    detector = PhraseDetector(
-        model_path="/tmp/does-not-matter",
-        phrases=["hello"],
-        sample_rate=16000,
-        model=object(),
-        recognizer_factory=constrained_factory,
-        verify_with_fallback=True,
-        fallback_recognizer_factory=fallback_factory,
-    )
-
-    res = detector.detect(b"audio")
+def test_detect_empty_transcription():
+    detector = _make_detector("", ["hello"])
+    res = detector.detect(b"\x00\x00" * 8000)
     assert res.detected is False
-    assert res.phrase is None
-    assert res.fallback_text == "yellow"
+    assert res.raw_text == ""
+
+
+def test_detect_case_insensitive():
+    detector = _make_detector("Hello", ["hello"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is True
+    assert res.phrase == "hello"
+
+
+def test_detect_strips_punctuation():
+    detector = _make_detector("hello!", ["hello"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is True
+
+
+def test_update_phrases():
+    detector = _make_detector("computer", ["hello"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is False
+
+    detector.update_phrases(["computer"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is True
+
+
+def test_current_phrases():
+    detector = _make_detector("", ["hello", "jarvis"])
+    assert detector.current_phrases == ["hello", "jarvis"]
