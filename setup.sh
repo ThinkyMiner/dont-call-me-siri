@@ -18,16 +18,10 @@ pip install --upgrade pip
 echo "Installing dependencies..."
 pip install -r requirements.txt
 
-echo "Downloading Vosk model (small)..."
-MODEL_DIR="models/vosk-model-small-en-us-0.15"
-if [ ! -d "$MODEL_DIR" ]; then
-    mkdir -p models
-    cd models
-    curl -LO https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip
-    unzip vosk-model-small-en-us-0.15.zip
-    rm vosk-model-small-en-us-0.15.zip
-    cd ..
-fi
+echo "Verifying Moonshine STT model..."
+python3 -c "from moonshine_onnx import MoonshineOnnxModel; MoonshineOnnxModel(model_name='tiny')" && \
+    echo "Moonshine Tiny model ready." || \
+    echo "Warning: Moonshine model download may happen on first run."
 
 if [ ! -f "config.json" ]; then
     echo "Creating default config..."
@@ -50,9 +44,8 @@ if [ ! -f "config.json" ]; then
         "silence_duration_ms": 500
     },
     "detection": {
-        "confidence_threshold": 0.0,
-        "cooldown_seconds": 3.0,
-        "allow_unk_wrapped_match": false
+        "confidence_threshold": 0.5,
+        "cooldown_seconds": 3.0
     },
     "siri": {
         "trigger_method": "open_app",
