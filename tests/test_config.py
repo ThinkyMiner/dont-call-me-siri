@@ -1,5 +1,5 @@
 import json
-from src.config import Config
+from src.config import Config, DetectionConfig
 
 
 def test_load_and_save_config(tmp_path):
@@ -38,3 +38,10 @@ def test_load_and_save_config(tmp_path):
 
     assert reloaded.remove_phrase("alpha") is True
     assert reloaded.remove_phrase("missing") is False
+
+
+def test_detection_config_has_no_allow_unk_wrapped_match():
+    """allow_unk_wrapped_match was a Vosk-specific option and should be removed."""
+    dc = DetectionConfig()
+    assert not hasattr(dc, "allow_unk_wrapped_match")
+    assert dc.confidence_threshold == 0.5

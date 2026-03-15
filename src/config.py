@@ -22,7 +22,6 @@ class VADConfig:
 class DetectionConfig:
     confidence_threshold: float = 0.5
     cooldown_seconds: float = 3.0
-    allow_unk_wrapped_match: bool = False
 
 
 @dataclass
