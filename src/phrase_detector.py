@@ -25,6 +25,7 @@ class PhraseDetector:
     ):
         self.phrases = phrases
         self.sample_rate = sample_rate
+        self._update_normalized_phrases()
 
         if model is not None:
             self._model = model
@@ -45,7 +46,13 @@ class PhraseDetector:
         text = re.sub(r"\s+", " ", text).strip()
         return text
 
+    def _update_normalized_phrases(self) -> None:
+        self._norm_phrases = [(p, self._normalize(p)) for p in self.phrases]
+
     def detect(self, audio_segment: bytes) -> DetectionResult:
+        if len(audio_segment) < 2:
+            return DetectionResult(detected=False, phrase=None, confidence=0.0, raw_text="")
+
         audio = np.frombuffer(audio_segment, dtype=np.int16).astype(np.float32) / 32768.0
         audio = audio[np.newaxis, :]  # shape [1, num_samples]
 
@@ -59,17 +66,16 @@ class PhraseDetector:
                 detected=False, phrase=None, confidence=0.0, raw_text=raw_text
             )
 
-        # Try exact match first, then contains match
-        for phrase in self.phrases:
-            norm_phrase = self._normalize(phrase)
+        # Try exact match first, then word-boundary contains match
+        for phrase, norm_phrase in self._norm_phrases:
             if norm_phrase == normalized:
                 return DetectionResult(
                     detected=True, phrase=phrase, confidence=1.0, raw_text=raw_text
                 )
 
-        for phrase in self.phrases:
-            norm_phrase = self._normalize(phrase)
-            if norm_phrase in normalized:
+        for phrase, norm_phrase in self._norm_phrases:
+            pattern = r"\b" + re.escape(norm_phrase) + r"\b"
+            if re.search(pattern, normalized):
                 return DetectionResult(
                     detected=True, phrase=phrase, confidence=1.0, raw_text=raw_text
                 )
@@ -80,6 +86,7 @@ class PhraseDetector:
 
     def update_phrases(self, phrases: list[str]) -> None:
         self.phrases = phrases
+        self._update_normalized_phrases()
 
     @property
     def current_phrases(self) -> list[str]:

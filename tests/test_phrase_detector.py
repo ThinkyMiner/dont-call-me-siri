@@ -1,4 +1,4 @@
-from src.phrase_detector import PhraseDetector, DetectionResult
+from src.phrase_detector import PhraseDetector
 
 
 class FakeTokenizer:
@@ -62,6 +62,27 @@ def test_detect_strips_punctuation():
     detector = _make_detector("hello!", ["hello"])
     res = detector.detect(b"\x00\x00" * 8000)
     assert res.detected is True
+
+
+def test_detect_word_boundary_prevents_partial_match():
+    """'hi' should NOT match inside 'this' or 'thinking'."""
+    detector = _make_detector("this is thinking", ["hi"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is False
+
+
+def test_detect_word_boundary_allows_real_word():
+    """'hi' should match when it appears as a standalone word."""
+    detector = _make_detector("say hi there", ["hi"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is True
+
+
+def test_detect_empty_audio():
+    detector = _make_detector("hello", ["hello"])
+    res = detector.detect(b"")
+    assert res.detected is False
+    assert res.raw_text == ""
 
 
 def test_update_phrases():
