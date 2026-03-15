@@ -2,15 +2,16 @@
 
 Offline custom wake-phrase trigger for Siri on macOS.
 
-This project does **not** train a wake-word model. It uses a lightweight pipeline:
+Uses a lightweight pipeline with Moonshine Tiny (transformer-based STT):
 
-`Microphone -> VAD -> constrained Vosk STT -> Siri trigger`
+`Microphone -> VAD -> Moonshine Tiny STT -> Siri trigger`
 
 ## What It Does
 
 - Runs fully offline on-device.
 - Lets you define one or many wake phrases in `config.json`.
 - Uses VAD gating to avoid constant speech decoding.
+- Full-vocabulary transcription — any English word works as a wake phrase.
 - Supports test mode (`no Siri trigger`) and run mode (`trigger Siri`).
 - Supports two Siri trigger methods:
   - `open_app` (recommended reliability)
@@ -32,6 +33,8 @@ source venv/bin/activate
 python -m src.main doctor
 python -m src.main run
 ```
+
+The Moonshine Tiny model (~60 MB) downloads automatically on first run.
 
 ## Core Commands
 
@@ -72,11 +75,7 @@ All runtime configuration is in `config.json`.
 "wake_phrases": ["hello", "jarvis"]
 ```
 
-Important: Vosk constrained grammar can only use words in model vocabulary. If you see a warning like:
-
-`Ignoring word missing in vocabulary: 'cortana'`
-
-that phrase will not work reliably with this model.
+Any English word or short phrase works — Moonshine does full-vocabulary transcription.
 
 ### 2) Audio input
 
@@ -101,15 +100,13 @@ that phrase will not work reliably with this model.
   "silence_duration_ms": 650
 },
 "detection": {
-  "confidence_threshold": 0.0,
-  "cooldown_seconds": 3.0,
-  "allow_unk_wrapped_match": false
+  "confidence_threshold": 0.5,
+  "cooldown_seconds": 3.0
 }
 ```
 
 - Higher `aggressiveness` reduces false speech activation in noisy rooms.
-- `allow_unk_wrapped_match=false` makes matching stricter (less sensitive).
-- `confidence_threshold` is often kept at `0.0` in constrained mode because Vosk may not return per-word confidence values.
+- `confidence_threshold` filters low-confidence detections (0.0-1.0).
 
 ### 4) Siri trigger mode
 
@@ -183,16 +180,15 @@ python -m src.main run
 
 ### Phrase not recognized
 
-- Phrase may be out-of-vocabulary for the model.
+- Speak clearly and close to the microphone.
 - Try common words first (`hello`, `jarvis`, `computer`).
-- Watch model warnings in startup logs.
+- Lower `vad.aggressiveness` if speech segments aren't being captured.
 
 ### Too many false triggers
 
 - Increase `vad.aggressiveness`.
 - Increase `vad.min_speech_duration_ms`.
 - Increase `vad.silence_duration_ms`.
-- Keep `allow_unk_wrapped_match=false`.
 
 ### Siri says triggered but Siri UI does not open
 
