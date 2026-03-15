@@ -198,10 +198,14 @@ def test_daemon_reads_siri_shortcut_from_config(monkeypatch):
 
 def test_doctor_reports_voice_mode_inactive(monkeypatch, capsys):
     """doctor command prints voice mode status when Type to Siri is ON."""
+    import sys
+    import types
+    fake_moonshine = types.ModuleType("moonshine_onnx")
+    fake_moonshine.version = "test"
+    monkeypatch.setitem(sys.modules, "moonshine_onnx", fake_moonshine)
     monkeypatch.setattr("src.main.SiriTrigger.check_siri_enabled", lambda: True)
     monkeypatch.setattr("src.main.SiriTrigger.check_voice_mode", lambda: False)
     monkeypatch.setattr("src.main.SiriTrigger.check_accessibility_permissions", lambda: True)
-    monkeypatch.setattr("os.path.exists", lambda _: True)
 
     from unittest.mock import patch
     with patch("sys.argv", ["src.main", "doctor"]):
@@ -217,10 +221,14 @@ def test_doctor_reports_voice_mode_inactive(monkeypatch, capsys):
 
 def test_doctor_reports_voice_mode_active(monkeypatch, capsys):
     """doctor command prints active status when Type to Siri is OFF."""
+    import sys
+    import types
+    fake_moonshine = types.ModuleType("moonshine_onnx")
+    fake_moonshine.version = "test"
+    monkeypatch.setitem(sys.modules, "moonshine_onnx", fake_moonshine)
     monkeypatch.setattr("src.main.SiriTrigger.check_siri_enabled", lambda: True)
     monkeypatch.setattr("src.main.SiriTrigger.check_voice_mode", lambda: True)
     monkeypatch.setattr("src.main.SiriTrigger.check_accessibility_permissions", lambda: True)
-    monkeypatch.setattr("os.path.exists", lambda _: True)
 
     from unittest.mock import patch
     with patch("sys.argv", ["src.main", "doctor"]):
@@ -236,12 +244,16 @@ def test_doctor_reports_voice_mode_active(monkeypatch, capsys):
 
 def test_doctor_fix_voice_mode_calls_set_voice_mode(monkeypatch, capsys):
     """doctor --fix-voice-mode calls SiriTrigger.set_voice_mode."""
+    import sys
+    import types
+    fake_moonshine = types.ModuleType("moonshine_onnx")
+    fake_moonshine.version = "test"
+    monkeypatch.setitem(sys.modules, "moonshine_onnx", fake_moonshine)
     called = []
     monkeypatch.setattr("src.main.SiriTrigger.set_voice_mode", lambda: called.append(True))
     monkeypatch.setattr("src.main.SiriTrigger.check_siri_enabled", lambda: True)
     monkeypatch.setattr("src.main.SiriTrigger.check_voice_mode", lambda: False)
     monkeypatch.setattr("src.main.SiriTrigger.check_accessibility_permissions", lambda: True)
-    monkeypatch.setattr("os.path.exists", lambda _: True)
 
     from unittest.mock import patch
     with patch("sys.argv", ["src.main", "doctor", "--fix-voice-mode"]):
@@ -256,7 +268,12 @@ def test_doctor_fix_voice_mode_calls_set_voice_mode(monkeypatch, capsys):
 
 def test_doctor_fix_voice_mode_prints_error_on_failure(monkeypatch, capsys):
     """doctor --fix-voice-mode prints an error message if set_voice_mode raises."""
+    import sys
+    import types
     import subprocess as _subprocess
+    fake_moonshine = types.ModuleType("moonshine_onnx")
+    fake_moonshine.version = "test"
+    monkeypatch.setitem(sys.modules, "moonshine_onnx", fake_moonshine)
 
     def failing_set_voice_mode():
         raise _subprocess.CalledProcessError(1, ["defaults", "write"])
@@ -265,7 +282,6 @@ def test_doctor_fix_voice_mode_prints_error_on_failure(monkeypatch, capsys):
     monkeypatch.setattr("src.main.SiriTrigger.check_siri_enabled", lambda: True)
     monkeypatch.setattr("src.main.SiriTrigger.check_voice_mode", lambda: False)
     monkeypatch.setattr("src.main.SiriTrigger.check_accessibility_permissions", lambda: True)
-    monkeypatch.setattr("os.path.exists", lambda _: True)
 
     from unittest.mock import patch
     with patch("sys.argv", ["src.main", "doctor", "--fix-voice-mode"]):

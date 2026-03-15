@@ -1,6 +1,5 @@
 import argparse
 import logging
-import os
 import queue
 import subprocess
 import threading
@@ -33,12 +32,8 @@ class WakePhraseDaemon:
             silence_duration_ms=config.vad.silence_duration_ms,
         )
         self.detector = detector or PhraseDetector(
-            model_path="models/vosk-model-small-en-us-0.15",
             phrases=config.wake_phrases,
             sample_rate=config.audio.sample_rate,
-            debug_fallback_transcript=test_mode,
-            verify_with_fallback=True,
-            allow_unk_wrapped_match=getattr(config.detection, "allow_unk_wrapped_match", False),
         )
         if trigger is not None:
             self.trigger = trigger
@@ -107,9 +102,6 @@ class WakePhraseDaemon:
 
             result = self.detector.detect(segment)
             logging.debug("Detected: '%s' (conf: %.2f)", result.raw_text, result.confidence)
-            if result.fallback_text:
-                logging.debug("Fallback transcript: '%s'", result.fallback_text)
-
             if result.detected and result.confidence >= self.config.detection.confidence_threshold:
                 self._handle_detection(result)
 
@@ -208,10 +200,11 @@ def main():
             print("Voice mode: inactive — Siri opens the text bar instead of listening")
             print("  Fix: python -m src.main doctor --fix-voice-mode")
 
-        if os.path.exists("models/vosk-model-small-en-us-0.15"):
-            print("Vosk model found")
-        else:
-            print("Vosk model not found - run setup.sh")
+        try:
+            import moonshine_onnx
+            print(f"Moonshine STT available (v{moonshine_onnx.version})")
+        except ImportError:
+            print("Moonshine STT not installed - run: pip install useful-moonshine-onnx")
     elif args.command == "devices":
         devices = AudioCapture.list_devices()
         print("Available input devices:")
