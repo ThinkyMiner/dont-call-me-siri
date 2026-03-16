@@ -1,7 +1,10 @@
 {
     "wake_phrases": [
         "hello",
-        "jarvis"
+        "jarvis",
+        "cortana",
+        "mithiye",
+        "deepu"
     ],
     "audio": {
         "sample_rate": 16000,
