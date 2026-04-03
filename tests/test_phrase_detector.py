@@ -98,3 +98,54 @@ def test_update_phrases():
 def test_current_phrases():
     detector = _make_detector("", ["hello", "jarvis"])
     assert detector.current_phrases == ["hello", "jarvis"]
+
+
+def test_phonetic_match_deepu_dipu():
+    """'dipu' should phonetically match 'deepu'."""
+    detector = _make_detector("dipu", ["deepu"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is True
+    assert res.phrase == "deepu"
+    assert res.confidence == 0.8
+
+
+def test_phonetic_match_mithiye_meethie():
+    """'meethie' should phonetically match 'mithiye'."""
+    detector = _make_detector("meethie", ["mithiye"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is True
+    assert res.phrase == "mithiye"
+    assert res.confidence == 0.8
+
+
+def test_phonetic_match_jarvis_jervis():
+    """'jervis' should phonetically match 'jarvis'."""
+    detector = _make_detector("jervis", ["jarvis"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is True
+    assert res.phrase == "jarvis"
+    assert res.confidence == 0.8
+
+
+def test_phonetic_no_false_match():
+    """Phonetically different words should not match."""
+    detector = _make_detector("banana", ["jarvis"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is False
+
+
+def test_phonetic_match_in_sentence():
+    """Phonetic match works when phrase appears within longer transcription."""
+    detector = _make_detector("hey dipu what time is it", ["deepu"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is True
+    assert res.phrase == "deepu"
+    assert res.confidence == 0.8
+
+
+def test_exact_match_preferred_over_phonetic():
+    """Exact match should return confidence 1.0, not 0.8."""
+    detector = _make_detector("deepu", ["deepu"])
+    res = detector.detect(b"\x00\x00" * 8000)
+    assert res.detected is True
+    assert res.confidence == 1.0

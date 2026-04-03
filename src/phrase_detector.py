@@ -1,9 +1,11 @@
+import logging
 import re
 import string
 from dataclasses import dataclass
 from typing import Optional
 
 import numpy as np
+from metaphone import doublemetaphone
 
 
 @dataclass
@@ -46,17 +48,41 @@ class PhraseDetector:
         text = re.sub(r"\s+", " ", text).strip()
         return text
 
+    def _phonetic_codes(self, text: str) -> list[tuple[str, str]]:
+        """Return Double Metaphone codes for each word in text."""
+        return [doublemetaphone(w) for w in text.split()]
+
+    def _words_match_phonetically(self, codes_a: tuple[str, str], codes_b: tuple[str, str]) -> bool:
+        """True if two words share any non-empty metaphone code."""
+        for code_a in codes_a:
+            if not code_a:
+                continue
+            for code_b in codes_b:
+                if not code_b:
+                    continue
+                if code_a == code_b:
+                    return True
+        return False
+
     def _update_normalized_phrases(self) -> None:
         self._norm_phrases = [(p, self._normalize(p)) for p in self.phrases]
+        self._phrase_phonetics = [
+            (p, self._phonetic_codes(self._normalize(p))) for p in self.phrases
+        ]
 
     def detect(self, audio_segment: bytes) -> DetectionResult:
         if len(audio_segment) < 2:
             return DetectionResult(detected=False, phrase=None, confidence=0.0, raw_text="")
 
         audio = np.frombuffer(audio_segment, dtype=np.int16).astype(np.float32) / 32768.0
+        rms = float(np.sqrt(np.mean(audio ** 2)))
+        peak = float(np.max(np.abs(audio)))
+        logging.debug("Audio: %.2fs, RMS=%.4f, peak=%.4f", len(audio) / self.sample_rate, rms, peak)
+
         audio = audio[np.newaxis, :]  # shape [1, num_samples]
 
         tokens = self._model.generate(audio)
+        logging.debug("Moonshine tokens: %s", tokens)
         text_list = self._tokenizer.decode_batch(tokens)
         raw_text = text_list[0] if text_list else ""
         normalized = self._normalize(raw_text)
@@ -78,6 +104,21 @@ class PhraseDetector:
             if re.search(pattern, normalized):
                 return DetectionResult(
                     detected=True, phrase=phrase, confidence=1.0, raw_text=raw_text
+                )
+
+        # Phonetic matching: compare Double Metaphone codes word-by-word
+        transcription_codes = self._phonetic_codes(normalized)
+        for phrase, phrase_codes in self._phrase_phonetics:
+            if not phrase_codes:
+                continue
+            matched_all = True
+            for pc in phrase_codes:
+                if not any(self._words_match_phonetically(pc, tc) for tc in transcription_codes):
+                    matched_all = False
+                    break
+            if matched_all:
+                return DetectionResult(
+                    detected=True, phrase=phrase, confidence=0.8, raw_text=raw_text
                 )
 
         return DetectionResult(
